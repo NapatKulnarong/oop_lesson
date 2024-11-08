@@ -1,13 +1,19 @@
+"""
+This program defines 2 classes (Table and TableDB) to operate and manipulate data from CSV files
+"""
 import csv
 
 
 class Table:
+    """This class represent a table imported from a CSV file"""
     def __init__(self, table_name, table_data):
+        """Initialize the Table with name & data"""
         self.table_name = table_name
         self.table_data = table_data  # List of dict from CSV
 
     @classmethod
     def open_csv(cls, table_name):
+        """Open a CSV file and import the data into a Table instance"""
         table_data = []
         with open(table_name) as f:
             rows = csv.DictReader(f)
@@ -16,9 +22,11 @@ class Table:
         return cls(table_name, table_data)
 
     def filter(self, condition):
+        """Filter rows based on an input condition"""
         return [row for row in self.table_data if condition(row)]
 
     def aggregate(self, aggregation_function, aggregation_key):
+        """Aggregate data based on an input function and key (e.g. AVG, MIN, MAX)"""
         values_set = [float(row[aggregation_key]) for row in self.table_data]
         return aggregation_function(values_set)
 
@@ -27,14 +35,18 @@ class Table:
 
 
 class TableDB:
+    """This class is provided in order to manage Table instances"""
     def __init__(self):
-        self.tableDB = []
+        """Initialize the TableDB with an empty set"""
+        self.table_db = []
 
     def insert(self, table):
-        self.tableDB.append(table)
+        """Insert a table into the self.tableDB()"""
+        self.table_db.append(table)
 
     def search(self, table_name_input):
-        for table in self.tableDB:
+        """Search for a table by an input name"""
+        for table in self.table_db:
             if table.table_name == table_name_input:
                 return table
         return None
