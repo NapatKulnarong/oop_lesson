@@ -1,112 +1,95 @@
 import csv
-import os
 
 
-class City:
-    def __init__(self, city, country, latitude, longitude, temperature):
-        self.city = city
-        self.country = country
-        self.latitude = latitude
-        self.longitude = longitude
-        self.temperature = temperature
-
-
-class WeatherData:
-    def __init__(self, cities, countries):
-        self.cities = cities
-        self.countries = countries
+class Table:
+    def __init__(self, table_name, table_data):
+        self.table_name = table_name
+        self.table_data = table_data  # List of dict from CSV
 
     @classmethod
-    def open_csv(cls, cities_csv, countries_csv):
-        cities = []
-        with open(cities_csv) as f:
+    def open_csv(cls, table_name):
+        table_data = []
+        with open(table_name) as f:
             rows = csv.DictReader(f)
             for r in rows:
-                cities.append(dict(r))
+                table_data.append(dict(r))  # Convert each row to a dictionary
+        return cls(table_name, table_data)
 
-        countries = []
-        with open(countries_csv) as f:
-            rows = csv.DictReader(f)
-            for r in rows:
-                countries.append(dict(r))
+    def filter(self, condition):
+        return [row for row in self.table_data if condition(row)]
 
-        return cls(cities, countries)
-
-    def filter(self, condition_function, dict_list):
-        return [item for item in dict_list if condition_function(item)]
-        # return: a list of dict that's matched with the condition
-
-    def aggregate(self, aggregation_key, aggregation_function, dict_list):
-        values_set = [float(_dict[aggregation_key]) for _dict in dict_list]
+    def aggregate(self, aggregation_function, aggregation_key):
+        values_set = [float(row[aggregation_key]) for row in self.table_data]
         return aggregation_function(values_set)
 
-    def get_cities_in_country(self, input_country):
-        return [_city for _city in self.cities if _city['country'] == input_country]
-
-    def print_avg_temp(self, cities):
-        avg_temp = self.aggregate('temperature', lambda temps_set: sum(temps_set) / len(temps_set), cities)
-        print(f"{avg_temp:.4f}")
-
-    def print_min_temp(self, cities):
-        min_temp = self.aggregate('temperature', lambda temps_set: min(temps_set), cities)
-        print(f"{min_temp:.4f}")
-
-    def print_max_temp(self, cities):
-        max_temp = self.aggregate('temperature', lambda temps_set: max(temps_set), cities)
-        print(f"{max_temp:.4f}")
+    def __str__(self):
+        return f"Table Name: {self.table_name} ({len(self.table_data)} Rows)"
 
 
-__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-cities_import = os.path.join(__location__, 'Cities.csv')
-countries_import = os.path.join(__location__, 'Countries.csv')
+class TableDB:
+    def __init__(self):
+        self.tableDB = []
 
-weather_data = WeatherData.open_csv(cities_import, countries_import)
-# import cities and countries data from CSV files
-# weather_data is an instance of the WeatherData class, it has 2 attributes
-# 1. cities: a list of dictionaries showing city data
-# 2. countries: a list of dictionaries showing country data
+    def insert(self, table):
+        self.tableDB.append(table)
+
+    def search(self, table_name_input):
+        for table in self.tableDB:
+            if table.table_name == table_name_input:
+                return table
+        return None
 
 
-# PRINT
+# ------------------------------- MAIN PART ------------------------------- #
+db = TableDB()  # Create an instance of TableDB
+
+table_cities = Table.open_csv('Cities.csv')
+table_countries = Table.open_csv('Countries.csv')
+# Import tables from CSV files
+
+db.insert(table_cities)
+db.insert(table_countries)
+# Insert tables into db
+
+
+# PRINT section
+table_searched = db.search('Cities.csv')  # Search for a table by a name input
+
 print("The average temperature of all the cities:")
-weather_data.print_avg_temp(weather_data.cities)
+temp_avg = table_searched.aggregate(lambda temps: sum(temps) / len(temps), 'temperature')
+print(f"{temp_avg:.4f}")
 
-italy_cities = weather_data.get_cities_in_country('Italy')
-
+italy_cities = table_searched.filter(lambda x: x['country'] == 'Italy')
 print("\nAll the cities in Italy:")
-cities_set = []
-for _dict in italy_cities:
-    cities_set.append(_dict['city'])
+cities_set = [city['city'] for city in italy_cities]
 print(cities_set)
 
 print("\nThe average temperature of all the cities in Italy :")
-weather_data.print_avg_temp(italy_cities)
+avg_temp_italy = table_searched.aggregate(lambda temps: sum(temps) / len(temps), 'temperature')
+print(f"{avg_temp_italy:.4f}")
 
 print("\nThe max temperature of all the cities in Italy :")
-weather_data.print_max_temp(italy_cities)
+max_temp_italy = table_searched.aggregate(max, 'temperature')
+print(f"{max_temp_italy:.4f}")
 
 print("\nThe min temperature of all the cities in Italy :")
-weather_data.print_min_temp(italy_cities)
+min_temp_italy = table_searched.aggregate(min, 'temperature')
+print(f"{min_temp_italy:.4f}\n")
 
-# Cities with latitude >= 60.0
-print()
-filtered_cities = weather_data.filter(lambda _city: float(_city['latitude']) >= 60.0, weather_data.cities)
+# Print cities with latitude >= 60.0
+filtered_cities = table_searched.filter(lambda _city: float(_city['latitude']) >= 60.0)
 for _city in filtered_cities:
     print(_city)
 
-# AVG, MIN, and MAX temp for Italy and Sweden
+# Print AVG, MIN, and MAX temp for Italy and Sweden
 for country in ['Italy', 'Sweden']:
-    cities_inside = list(filter(lambda _city: _city['country'] == country, weather_data.cities))
+    cities_inside = table_searched.filter(lambda _city: _city['country'] == country)
 
-    temp_avg = weather_data.aggregate('temperature', lambda n: round(sum(n)/len(n), 4), cities_inside)
-    temp_min = weather_data.aggregate('temperature', min, cities_inside)
-    temp_max = weather_data.aggregate('temperature', max, cities_inside)
+    temp_avg = table_searched.aggregate(lambda n: round(sum(n)/len(n), 4), 'temperature')
+    temp_min = table_searched.aggregate(min, 'temperature')
+    temp_max = table_searched.aggregate(max, 'temperature')
 
     print(f"\nTemperature in {country}")
     print(f"Average: {temp_avg}")
     print(f"Minimum: {temp_min}")
     print(f"Maximum: {temp_max}")
-
-
-
-
